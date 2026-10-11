@@ -47,7 +47,14 @@ jobs:
           $vs = (& $vswhere -latest -products '*' -version '[18.0,19.0)' -property installationPath | Select-Object -First 1)
           if (-not $vs) { throw 'Visual Studio 2026 (major 18) not found' }
           $bat = Join-Path $vs 'Common7\Tools\VsDevCmd.bat'
-          $out = cmd.exe /d /s /c "`"`"$bat`" -arch=amd64 -host_arch=amd64 >nul && set`""
+          $vsEnvCmd = Join-Path $env:RUNNER_TEMP 'enter-vs-env.cmd'
+          @"
+          @echo off
+          call "$bat" -arch=amd64 -host_arch=amd64 >nul
+          if errorlevel 1 exit /b %errorlevel%
+          set
+          "@ | Set-Content -LiteralPath $vsEnvCmd -Encoding ascii
+          $out = & cmd.exe /d /c $vsEnvCmd
           if ($LASTEXITCODE -ne 0) { throw 'Could not initialize VS developer environment' }
           foreach ($line in $out) {
             if ($line -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
